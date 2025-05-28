@@ -121,10 +121,23 @@ void CSteamNetworkConnectionP2P::CheckInitICE()
 		cfg.m_nCandidateTypes |= k_EICECandidate_Any_HostPublic|k_EICECandidate_Any_Reflexive;
 
 		{
-			CUtlVectorAutoPurge<char *> tempStunServers;
-			V_AllocAndSplitString( m_connectionConfig.P2P_STUN_ServerList.Get().c_str(), ",", tempStunServers );
-			for ( const char *pszAddress: tempStunServers )
+			std_vector<std::string> tempStunServers;
+			std::string stunList = m_connectionConfig.P2P_STUN_ServerList.Get().c_str();
+			std::string newServer;
+			for(char a : stunList) {
+				if(a != ',')
+					newServer += a;
+				else {
+					tempStunServers.emplace_back(newServer);
+					newServer.clear();
+				}
+			}
+			if(!newServer.empty())
+				tempStunServers.emplace_back(newServer);
+			
+			for (const std::string& strPszAddress: tempStunServers )
 			{
+				const char* pszAddress = strPszAddress.c_str();
 				std::string server;
 
 				// Add prefix, unless they already supplied it
@@ -150,26 +163,39 @@ void CSteamNetworkConnectionP2P::CheckInitICE()
 
 	// Get the TURN server list
 	std_vector<std::string> vecTurnServerAddrs;
-	CUtlVectorAutoPurge<char*> vecTurnUsers;
-	CUtlVectorAutoPurge<char*> vecTurnPasses;
+	std_vector<std::string> vecTurnUsers;
+	std_vector<std::string> vecTurnPasses;
 	std_vector<ICESessionConfig::TurnServer> vecTurnServers;
 	if ( P2P_Transport_ICE_Enable & k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_Relay )
 	{
 		cfg.m_nCandidateTypes |= k_EICECandidate_Any_Relay;
 
 		{
-			CUtlVectorAutoPurge<char*> tempTurnServers;
-			V_AllocAndSplitString( m_connectionConfig.P2P_TURN_ServerList.Get().c_str(), ",", tempTurnServers, true );
-			for (const char* pszAddress : tempTurnServers)
+			std_vector<std::string> tempTurnServers;
+			std::string turnList = m_connectionConfig.P2P_TURN_ServerList.Get().c_str();
+			std::string newServer;
+			for(char a : turnList) {
+				if(a != ',')
+					newServer += a;
+				else {
+					tempTurnServers.emplace_back(newServer);
+					newServer.clear();
+				}
+			}
+			if(!newServer.empty())
+				tempTurnServers.emplace_back(newServer);
+			
+			for (const std::string& strPszAddress: tempTurnServers )
 			{
+				const char* pszAddress = strPszAddress.c_str();
 				std::string server;
 
 				// Add prefix, unless they already supplied it
-				if (V_strnicmp(pszAddress, "turn:", 5) != 0)
+				if ( V_strnicmp( pszAddress, "turn:", 5 ) != 0 )
 					server = "turn:";
 				server.append(pszAddress);
 
-				vecTurnServerAddrs.push_back(std::move(server));
+				vecTurnServerAddrs.push_back( std::move( server ) );
 			}
 		}
 
@@ -183,18 +209,40 @@ void CSteamNetworkConnectionP2P::CheckInitICE()
 			cfg.m_nTurnServers = len(vecTurnServerAddrs);
 
 			// populate usernames
-			V_AllocAndSplitString( m_connectionConfig.P2P_TURN_UserList.Get().c_str(), ",", vecTurnUsers, true) ;
-
+			std::string turnUserList = m_connectionConfig.P2P_TURN_UserList.Get().c_str();
+			std::string newUser;
+			for(char a : turnUserList) {
+				if(a != ',')
+					newUser += a;
+				else {
+					vecTurnUsers.emplace_back(newUser);
+					newUser.clear();
+				}
+			}
+			if(!newUser.empty())
+				vecTurnUsers.emplace_back(newUser);
+			
 			// populate passwords
-			V_AllocAndSplitString( m_connectionConfig.P2P_TURN_PassList.Get().c_str(), ",", vecTurnPasses, true );
+			std::string turnPassList = m_connectionConfig.P2P_TURN_PassList.Get().c_str();
+			std::string newPass;
+			for(char a : turnPassList) {
+				if(a != ',')
+					newPass += a;
+				else {
+					vecTurnPasses.emplace_back(newPass);
+					newPass.clear();
+				}
+			}
+			if(!newPass.empty())
+				vecTurnPasses.emplace_back(newPass);
 
 			// If turn arrays lengths (servers, users and passes) are not match, treat all TURN servers as unauthenticated
-			if ( !vecTurnUsers.IsEmpty() || !vecTurnPasses.IsEmpty() )
+			if ( !vecTurnUsers.empty() || !vecTurnPasses.empty() )
 			{
-				if ( cfg.m_nTurnServers != vecTurnUsers.Count() || cfg.m_nTurnServers != vecTurnPasses.Count() )
+				if ( cfg.m_nTurnServers != vecTurnUsers.size() || cfg.m_nTurnServers != vecTurnPasses.size() )
 				{
-					vecTurnUsers.PurgeAndDeleteElements();
-					vecTurnPasses.PurgeAndDeleteElements();
+					vecTurnUsers.clear();
+					vecTurnPasses.clear();
 					SpewWarningGroup(LogLevel_P2PRendezvous(), "[%s] TURN user/pass list is not same length as address list.  Treating all servers as unauthenticated!\n", GetDescription() );
 				}
 			}
@@ -205,13 +253,13 @@ void CSteamNetworkConnectionP2P::CheckInitICE()
 				ICESessionConfig::TurnServer* turn = push_back_get_ptr( vecTurnServers );
 				turn->m_pszHost = vecTurnServerAddrs[i].c_str();
 
-				if ( vecTurnUsers.Count() > i)
-					turn->m_pszUsername = vecTurnUsers[i];
+				if ( vecTurnUsers.size() > i)
+					turn->m_pszUsername = vecTurnUsers[i].data();
 				else
 					turn->m_pszUsername = "";
 
-				if ( vecTurnPasses.Count() > i)
-					turn->m_pszPwd = vecTurnPasses[i];
+				if ( vecTurnPasses.size() > i)
+					turn->m_pszPwd = vecTurnPasses[i].data();
 				else
 					turn->m_pszPwd = "";
 			}
