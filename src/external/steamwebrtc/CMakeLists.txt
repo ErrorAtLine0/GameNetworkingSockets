@@ -69,6 +69,7 @@ if(WIN32)
 		-DNOMINMAX
 		-DWIN32_LEAN_AND_MEAN
 		-D_WINSOCKAPI_
+		-DABSL_CONSUME_DLL # Might fix the issues on windows with MSVC
 		)
 		add_compile_options(
 			/wd4715   # src\external\webrtc\pc\dtls_transport.cc(34) : warning C4715: 'webrtc::`anonymous namespace'::TranslateState': not all control paths return a value
